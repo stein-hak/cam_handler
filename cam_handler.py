@@ -967,15 +967,27 @@ class Splitter(Process):
                         ret = self.record_format.get_record_type(begin_time)
                         if ret[0]:
                             if ret[2] == 'hybrid' or ret[2] == 'persistent':
-                                try:
-                                    upload_file(path, host=self.ftp_host)
-                                except:
-                                    print('%s: Unable to upload file to %s' % (self.name, self.ftp_host))
+                                if self.ftp_host:
+                                    try:
+                                        upload_file(path, host=self.ftp_host)
+                                    except:
+                                        print('%s: Unable to upload file to %s' % (self.name, self.ftp_host))
+                                        os.remove(path)
+                                else:
+                                    print('%s: No ftp archive to upload' % self.name)
+                                    os.remove(path)
+
+
                             elif '#' in path:
-                                try:
-                                    upload_file(path, host=self.ftp_host)
-                                except:
-                                    print('%s: Unable to upload file to %s' % (self.name,self.ftp_host))
+                                if self.ftp_host:
+                                    try:
+                                        upload_file(path, host=self.ftp_host)
+                                    except:
+                                        print('%s: Unable to upload file to %s' % (self.name,self.ftp_host))
+                                        os.remove(path)
+                                else:
+                                    print('%s: No ftp archive to upload' % self.name)
+                                    os.remove(path)
                             else:
                                 os.remove(path)
 
@@ -1009,6 +1021,9 @@ class Splitter(Process):
                     self.password = data.get('password')
                     if self.state == 'standby':
                         self.configure_cam(self.name, self.host, self.username, self.password)
+
+                elif name == 'new_archive':
+                    self.ftp_host = data.get('ftp_host')
 
 
     def test_multisink(self):
@@ -1502,8 +1517,11 @@ class Splitter(Process):
 
 
 if __name__ == '__main__':
-    workers = []
-    s = Splitter(name='in_office', redis_host='localhost', ftp_host='192.168.10.152', host='192.168.1.133')
-    s.start()
-    while s.is_alive():
-        time.sleep(1)
+    #s = Splitter(name='in_office', redis_host='localhost', ftp_host='192.168.10.152', host='192.168.1.133')
+    # s.start()
+    # while s.is_alive():
+    #     time.sleep(1)
+    redis_host = os.getenv('REDIS_HOST')
+    ftp_host = os.getenv('FTP_HOST')
+    s = Splitter(redis_host=redis_host,ftp_host=ftp_host)
+    s.run()
