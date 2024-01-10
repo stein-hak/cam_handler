@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-gi \
     python3-gi-cairo \
     python3-dbus \
+    python3-dev \
     gir1.2-gtk-3.0 \
     gir1.2-gstreamer-1.0 \
     gir1.2-gst-plugins-base-1.0 \
@@ -22,8 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-rtsp \
     gstreamer1.0-opencv \
     gstreamer1.0-tools \
-    libxml2-dev\
-    libxslt1-dev\
+    libxml2 \
+    libxml2-dev \
+    libxslt1-dev \
+    gcc \
     git \
     python3-redis \
     python3-pip \
@@ -33,7 +36,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     bash \
     ffmpeg
- 
 
 RUN pip3 install onvif_zeep
 ENV PYTHONUNBUFFERED=1
