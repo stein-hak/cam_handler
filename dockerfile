@@ -26,7 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2 \
     libxml2-dev \
     libxslt1-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libzbar0 \
+    cmake \
     gcc \
+    g++ \
     git \
     python3-redis \
     python3-pip \
@@ -37,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     ffmpeg
 
-RUN pip3 install onvif_zeep
+RUN pip3 install onvif_zeep face_recognition pyzbar
 ENV PYTHONUNBUFFERED=1
 WORKDIR /opt/cam_handler
 COPY . .
