@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-rtsp \
     gstreamer1.0-opencv \
     gstreamer1.0-tools \
+    libxml2-dev\
+    libxslt1-dev\
     git \
     python3-redis \
     python3-pip \
