@@ -2,9 +2,7 @@ FROM ubuntu:bionic
 ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN apt-get update
-RUN \
-    apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpulse0 \
     pulseaudio \
     python3-mutagen \
@@ -29,6 +27,7 @@ RUN \
     python3-pip \
     python3-setuptools \
     python3-wheel \
+    python3-lxml \
     iputils-ping \
     bash \
     ffmpeg
