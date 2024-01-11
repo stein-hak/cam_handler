@@ -46,7 +46,7 @@ RUN pip3 install onvif_zeep face_recognition pyzbar
 ENV PYTHONUNBUFFERED=1
 WORKDIR /opt/cam_handler
 COPY . .
-RUN chmod +x /opt/cam_handler.py
+RUN chmod +x /opt/cam_handler/cam_handler.py
 CMD /opt/cam_handler/cam_handler.py
 EXPOSE 8888
 
