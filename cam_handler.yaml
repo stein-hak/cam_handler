@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cam-handler-deployment
+  labels:
+    app: cam-handler
+spec:
+  replicas: 17
+  selector:
+    matchLabels:
+      app: cam-handler
+  template:
+    metadata:
+      labels:
+        app: cam-handler
+    spec:
+      containers:
+        - name: cam-handler
+          image: 192.168.10.204:32000/cam_handler
+          securityContext:
+            privileged: true
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: REDIS_HOST
+              value: "192.168.10.152"
+            - name: FTP_HOST
+              value: "192.168.10.152"
+
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp
+              subPath: tmp
+            - mountPath: /run
+              name: tmp
+              subPath: run
+            - mountPath: /run/lock
+              name: tmp
+              subPath: run-lock
+            - mountPath: /etc/localtime
+              name: tz-config
+
+          ports:
+              - containerPort: 8888
+      volumes:
+          - name: tmp
+            emptyDir:
+                medium: Memory
+                sizeLimit: 255Mi
+          - name: tz-config
+            hostPath:
+              path: /usr/share/zoneinfo/Europe/Moscow
+

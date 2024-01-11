@@ -1435,6 +1435,7 @@ class Splitter(Process):
         print(self.id)
 
         self.message_bus = self.redis_queue.pubsub(ignore_subscribe_messages=True)
+        print(self.id+'_multifd')
         self.message_bus.subscribe(self.id + '_multifd')
 
         if self.host:
