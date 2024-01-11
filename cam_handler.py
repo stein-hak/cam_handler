@@ -130,7 +130,7 @@ def parse_addr(url):
 
 
 class Splitter(Process):
-    def __init__(self, host, name='default', user='admin', password='admin', overrides={}, publish_rtsp=False,
+    def __init__(self, host=None, name='default', user='admin', password='admin', overrides={}, publish_rtsp=False,
                  redis_host='127.0.0.1', ftp_host='localhost', min_detector_width=360, encoder_resolutions=[]):
         Process.__init__(self)
         #self.state = Value('i',0)  # {-2:ping timeout, -1:rtsp pipeline failed, 1: standby, 2:broadcasting, 3:recording}
