@@ -151,7 +151,7 @@ class Splitter(Process):
         self.min_detector_width = min_detector_width
         self.split_lock = None
         self.exit = Event()
-        self.watchdog_reset = Event()
+        self.watchdog = Event()
 
 
         self.pool = redis.ConnectionPool(host=self.redis_host, port=6379, db=0)
@@ -472,7 +472,7 @@ class Splitter(Process):
             if self.watchdog_timeout == 0:
                 self.exit.set()
 
-        
+
 
 
 
