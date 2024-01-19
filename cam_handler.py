@@ -983,7 +983,7 @@ class Splitter(Process):
                         self.stop_record()
 
                 elif name == 'new_file':
-                    self.watchdog_reset.set()
+                    self.watchdog.set()
                     files = data.get('files')
                     for path in sorted(list(files.keys())):
                         timestamp = files[path].get('timestamp')
