@@ -151,11 +151,14 @@ class Splitter(Process):
         self.min_detector_width = min_detector_width
         self.split_lock = None
         self.exit = Event()
+        self.watchdog_reset = Event()
+
 
         self.pool = redis.ConnectionPool(host=self.redis_host, port=6379, db=0)
         self.redis_queue = redis.StrictRedis(connection_pool=self.pool)
         self.start_times = {}
         self.record_format = record_format(time=120, event_seconds_pre=0, event_seconds_post=60)
+        self.watchdog_timeout = self.record_format.time * 2
         self.parent_path = '/run/videoserver'
         self.base_path = os.path.join(self.parent_path, self.name)
         self.fifo_path = os.path.join(self.base_path, 'fifo')
@@ -455,6 +458,24 @@ class Splitter(Process):
             if self.detecting:
                 self.stop_detector()
 
+    def update_watchdog(self):
+        ret = self.record_format.get_record_type(datetime.now())
+        ret1 = self.record_format.get_record_type(datetime.now() + timedelta(seconds=120))
+
+        if ret or ret1 and self.pipelines:
+            if self.watchdog.is_set():
+                self.watchdog_timeout = self.record_format.time * 2
+                self.watchdog_timeout.clear()
+            else:
+                self.watchdog_timeout -= 1
+
+            if self.watchdog_timeout == 0:
+                self.exit.set()
+
+        
+
+
+
 
     def create_base_pipeline(self, location, user, passwd, tcp=False):
         pipeline = Gst.Pipeline()
@@ -677,9 +698,9 @@ class Splitter(Process):
 
         app_queue = Gst.ElementFactory.make('queue', 'app_queue')
         self.detector.add(app_queue)
-        appsink = Gst.ElementFactory.make('appsink', 'raw_sink')
-        appsink.set_property('max-buffers', 1)
-        appsink.set_property('drop', True)
+        self.appsink = Gst.ElementFactory.make('appsink', 'raw_sink')
+        self.appsink.set_property('max-buffers', 1)
+        self.appsink.set_property('drop', True)
         self.detector.add(appsink)
         #
         fakesink = Gst.ElementFactory.make('fakesink', 'fakesink')
@@ -699,7 +720,9 @@ class Splitter(Process):
 
         return self.detector
 
-
+    def create_face_detector(self):
+        pass
+        # qeueue name=face !
     def on_rtspsrc_pad_added(self, rtspsrc, pad, *user_data):
         parent = rtspsrc.get_property('parent')
 
@@ -960,6 +983,7 @@ class Splitter(Process):
                         self.stop_record()
 
                 elif name == 'new_file':
+                    self.watchdog_reset.set()
                     files = data.get('files')
                     for path in sorted(list(files.keys())):
                         timestamp = files[path].get('timestamp')
@@ -1509,7 +1533,8 @@ class Splitter(Process):
                     self.update_param()
             self.parse_incomming()
             self.announce_state()
-            time.sleep(0.1)
+            self.update_watchdog()
+            time.sleep(1)
         print('Cam handler exiting')
 
         self.stop_all()

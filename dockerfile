@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-rtsp \
     gstreamer1.0-opencv \
     gstreamer1.0-tools \
+    opencv-data \
     libxml2 \
     libxml2-dev \
     libxslt1-dev \
