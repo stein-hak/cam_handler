@@ -465,7 +465,7 @@ class Splitter(Process):
         if ret or ret1 and self.pipelines:
             if self.watchdog.is_set():
                 self.watchdog_timeout = self.record_format.time * 2
-                self.watchdog_timeout.clear()
+                self.watchdog.clear()
             else:
                 self.watchdog_timeout -= 1
 
