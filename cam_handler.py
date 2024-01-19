@@ -701,7 +701,7 @@ class Splitter(Process):
         self.appsink = Gst.ElementFactory.make('appsink', 'raw_sink')
         self.appsink.set_property('max-buffers', 1)
         self.appsink.set_property('drop', True)
-        self.detector.add(appsink)
+        self.detector.add(self.appsink)
         #
         fakesink = Gst.ElementFactory.make('fakesink', 'fakesink')
         fakesink.set_property('async', False)
