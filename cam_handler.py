@@ -44,7 +44,7 @@ GObject.threads_init()
 
 class record_format():
 
-    def __init__(self, time, format={0: {'hybrid': {'days': '1111111', 'hours': '110000000111111111111111'},
+    def __init__(self, time, format={0: {'hybrid': {'days': '1111111', 'hours': '000000000111111111111111'},
                                          'event': {'days': '1111111', 'hours': '111111111111111111111111'},
                                          'persistent': {'days': '1111111', 'hours': '111111111111111111111111'}}},
                  event_seconds_pre=0, event_seconds_post=15, calendar={}):
@@ -1411,10 +1411,10 @@ class Splitter(Process):
 
 
     def stop_all(self):
-        if self.recording:
-            self.stop_record()
-        if self.detecting:
-            self.stop_record()
+        # if self.recording:
+        #     self.stop_record()
+        # if self.detecting:
+        #     self.stop_record()
         for pipeline, bus in list(self.pipelines.values()):
             pipeline.set_state(Gst.State.NULL)
             del pipeline
@@ -1535,11 +1535,13 @@ class Splitter(Process):
             self.announce_state()
             self.update_watchdog()
             time.sleep(1)
-        print('Cam handler exiting')
 
         self.stop_all()
-
         self.http_server.exit.set()
+        print('Cam handler exiting')
+
+
+        sys.exit(-1)
 
 
 if __name__ == '__main__':
