@@ -11,7 +11,7 @@ import urllib
 
 import socket
 import logging
-from http.server import SimpleHTTPRequestHandler,HTTPServer
+from http.server import SimpleHTTPRequestHandler, HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn, ForkingMixIn
 from multiprocessing import Process, Event
 from datetime import datetime, timedelta
@@ -49,7 +49,7 @@ class ProcessHTTPServer(ForkingMixIn, HTTPServer):
     """Handle requests in a separate Process."""
 
 
-class RequestHandler(SimpleHTTPRequestHandler):
+class RequestHandler(BaseHTTPRequestHandler):
     def basic_auth(self):
         if self.username and self.password:
             self.realm = "AuthHTTPServer"
@@ -186,15 +186,6 @@ class VideoHandler(RequestHandler):
         map_backup_jobs = {}
         # print(self.client_address[0])
         # print(self.path)
-        self.redis_queue = redis.Redis(connection_pool=self.pool)
-
-        params = json.loads(self.redis_queue.get('videoserver-multifd:%s:config' % self.name))
-
-        sinks = params.get('main_distributor')
-
-        native_sinks = params.get('native_sinks')
-
-        encoder_sinks = params.get('encoder_sinks')
 
 
         parsed_path = urlparse.urlparse(self.path)
@@ -204,6 +195,16 @@ class VideoHandler(RequestHandler):
 
         client = self.parse_args(args)
         if new_path == self.name or new_path == 'live':
+            self.redis_queue = redis.Redis(connection_pool=self.pool)
+
+            params = json.loads(self.redis_queue.get('videoserver-multifd:%s:config' % self.name))
+
+            sinks = params.get('main_distributor')
+
+            native_sinks = params.get('native_sinks')
+
+            encoder_sinks = params.get('encoder_sinks')
+
             if not 'action' in args.keys():
                 if 'res' in args.keys():
                     try:
@@ -213,24 +214,6 @@ class VideoHandler(RequestHandler):
                 else:
                     res = 0
 
-                # if res != 9 :
-                #     try:
-                #         sink = sinks[res]
-                #     except:
-                #         sink = sinks[-1]
-                #
-                #     if sink in native_sinks:
-                #         type = 'native'
-                #         m = native_sinks.index(sink)
-                #
-                #     elif sink in encoder_sinks:
-                #         type = 'encoder'
-                #         m = encoder_sinks.index(sink)
-                # else:
-                #     type = 'encoder'
-                #     m = 9
-
-                # print(type,m)
 
                 self.send_response(200)
                 # self.send_header("Content-type", self.code_to_type(int(http_code)))
@@ -270,40 +253,18 @@ class VideoHandler(RequestHandler):
                     except:
                         break
 
-            #
-            # elif args.get('action') == 'motion':
-            #     self.send_response(200)
-            #     # self.send_header("Content-type", self.code_to_type(int(http_code)))
-            #     self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-            #     self.send_header("Pragma", "no-cache")
-            #     self.send_header("Expires", "0")
-            #     self.send_header("Vary", "*")
-            #     self.send_header("Etag", str(time.time()).replace(".", ""))
-            #     self.send_header("Connection", "keep-alive")
-            #     self.end_headers()
-            #
-            #     fifo = os.path.join(self.fifo_path, 'distributor-' + str(os.getpid()))
-            #     message = {'event': 'new_fd', 'fd': fifo}
-            #     #
-            #     #print(message)
-            #
-            #     self.redis_queue.publish(self.name + '_detector', json.dumps(message))
-            #     while not os.path.exists(fifo):
-            #         time.sleep(0.01)
-            #
-            #     r = os.open(fifo, os.O_RDONLY)
-            #
-            #     fr = os.fdopen(r, 'rb')
-            #
-            #     data = ''
-            #     interrupt = False
-            #     while not interrupt:
-            #         try:
-            #             self.wfile.write(fr.read(188))
-            #             self.wfile.flush()
-            #         except:
-            #             break
-
+        elif new_path == 'watchdog':
+            if self.watchdog_timeout.value > 0:
+                self.send_response(200)
+                self.send_header("Content-type", "text/plain")
+                self.send_header('Content-Length', str(len(str(self.watchdog_timeout.value).encode('utf-8'))))
+                self.end_headers()
+                #print(self.watchdog_timeout.value)
+                #self.wfile.write(b'Hello, world!')
+                self.wfile.write(str(self.watchdog_timeout.value).encode('utf-8'))
+                self.wfile.flush()
+            else:
+                self.send_error(500)
 
 
 
@@ -313,7 +274,7 @@ class proxy_handler(RequestHandler):
 
 
 class base_server(Process):
-    def __init__(self, name, handler=VideoHandler, port=8888, redis_host='localhost',fifo_path='/run/videoserver/fifo'):
+    def __init__(self, name, watchdog_timeout, handler=VideoHandler, port=8888, redis_host='localhost',fifo_path='/run/videoserver/fifo'):
         Process.__init__(self)
 
         self.handler = handler
@@ -328,6 +289,7 @@ class base_server(Process):
         self.pool = redis.ConnectionPool(host=redis_host, port=6379, db=0)
         self.handler.pool = self.pool
         self.handler.fifo_path = fifo_path
+        self.handler.watchdog_timeout=watchdog_timeout
 
         self.handler.blocksize = self.blocksize
         self.interrupt = False

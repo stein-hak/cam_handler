@@ -19,6 +19,12 @@ spec:
           image: 192.168.10.204:32000/cam_handler
           securityContext:
             privileged: true
+          livenessProbe:
+            httpGet:
+              path: /watchdog
+              port: 8888
+            initialDelaySeconds: 20
+            periodSeconds: 5
           env:
             - name: MY_POD_NAME
               valueFrom:

@@ -41,6 +41,31 @@ GObject.threads_init()
 #
 #     return ret
 
+class watchdogger(Process):
+    def __init__(self, main_exit,watchdog,watchdog_timeout,timeout):
+        Process.__init__(self)
+        self.exit = Event()
+        self.main_exit = main_exit
+        self.watchdog= watchdog
+        self.watchdog_timeout = watchdog_timeout
+        self.exit = Event()
+        self.timeout = timeout
+
+    def run(self):
+        while not self.exit.is_set():
+            if self.watchdog.is_set():
+                self.watchdog_timeout.value = self.timeout
+                self.watchdog.clear()
+            else:
+                self.watchdog_timeout.value -= 1
+
+            if self.watchdog_timeout.value <= 0:
+                self.main_exit.set()
+                break
+            time.sleep(1)
+
+
+
 
 class record_format():
 
@@ -152,13 +177,14 @@ class Splitter(Process):
         self.split_lock = None
         self.exit = Event()
         self.watchdog = Event()
+        self.watchdogger = None
 
 
         self.pool = redis.ConnectionPool(host=self.redis_host, port=6379, db=0)
         self.redis_queue = redis.StrictRedis(connection_pool=self.pool)
         self.start_times = {}
         self.record_format = record_format(time=120, event_seconds_pre=0, event_seconds_post=60)
-        self.watchdog_timeout = self.record_format.time * 2
+        self.watchdog_timeout = Value('i', self.record_format.time * 2)
         self.parent_path = '/run/videoserver'
         self.base_path = os.path.join(self.parent_path, self.name)
         self.fifo_path = os.path.join(self.base_path, 'fifo')
@@ -286,6 +312,8 @@ class Splitter(Process):
 
         if not self.recording:
             print('Start recording')
+            self.watchdogger = watchdogger(main_exit=self.exit,watchdog=self.watchdog,watchdog_timeout=self.watchdog_timeout,timeout=self.record_format.time * 2)
+            self.watchdogger.start()
             while pipeline.get_state(1 * Gst.SECOND)[1] != Gst.State.PLAYING:
                 pipeline.set_state(Gst.State.PLAYING)
                 time.sleep(0.1)
@@ -315,6 +343,9 @@ class Splitter(Process):
             self.split_now()
             time.sleep(5)
             self.recording = False
+            if self.watchdogger:
+                self.watchdogger.exit.set()
+                self.watchdogger = None
             ghostpad = self.recorder.get_static_pad("sink")
             teepad = ghostpad.get_peer()
             teepad.add_probe(Gst.PadProbeType.BLOCK, self.blocking_pad_recorder)
@@ -464,12 +495,12 @@ class Splitter(Process):
 
         if ret or ret1 and self.pipelines:
             if self.watchdog.is_set():
-                self.watchdog_timeout = self.record_format.time * 2
+                self.watchdog_timeout.value = self.record_format.time * 2
                 self.watchdog.clear()
             else:
-                self.watchdog_timeout -= 1
+                self.watchdog_timeout.value -= 1
 
-            if self.watchdog_timeout == 0:
+            if self.watchdog_timeout.value <= 0:
                 self.exit.set()
 
 
@@ -1401,10 +1432,7 @@ class Splitter(Process):
                 self.recording = False
                 self.detecting = False
 
-                self.http_server = base_server(self.id, port=8888, redis_host=self.redis_host, fifo_path=self.fifo_path)
-                self.http_port = self.http_server.port
-                print('Starting http server on %d' % self.http_port)
-                self.http_server.start()
+
 
             self.get_fd_count()
             self.begin_time = datetime.now()
@@ -1441,6 +1469,8 @@ class Splitter(Process):
         self.redis_host_env = os.getenv('REDIS_HOST')
         self.ftp_host_env = os.getenv('FTP_HOST')
 
+
+
         if self.pod_name:
             self.mode = 'kubernetes'
             self.id = self.pod_name.split('-')[-1]
@@ -1458,9 +1488,16 @@ class Splitter(Process):
 
         print(self.id)
 
+
         self.message_bus = self.redis_queue.pubsub(ignore_subscribe_messages=True)
         print(self.id+'_multifd')
         self.message_bus.subscribe(self.id + '_multifd')
+
+        self.http_server = base_server(self.id, watchdog_timeout=self.watchdog_timeout, port=8888,
+                                       redis_host=self.redis_host, fifo_path=self.fifo_path)
+        self.http_port = self.http_server.port
+        print('Starting http server on %d' % self.http_port)
+        self.http_server.start()
 
         if self.host:
             print(self.host)
@@ -1533,7 +1570,7 @@ class Splitter(Process):
                     self.update_param()
             self.parse_incomming()
             self.announce_state()
-            self.update_watchdog()
+            #self.update_watchdog()
             time.sleep(1)
 
         self.stop_all()
