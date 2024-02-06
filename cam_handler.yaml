@@ -38,6 +38,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                  fieldRef:
+                    fieldPath: spec.nodeName
             - name: REDIS_HOST
               value: "192.168.10.152"
             - name: FTP_HOST

@@ -180,6 +180,8 @@ class Splitter(Process):
         self.watchdogger = None
 
 
+
+
         self.pool = redis.ConnectionPool(host=self.redis_host, port=6379, db=0)
         self.redis_queue = redis.StrictRedis(connection_pool=self.pool)
         self.start_times = {}
@@ -195,6 +197,12 @@ class Splitter(Process):
         self.native_sinks = []
         self.params = {}
 
+        self.type = 0
+
+        self.backup_watchdog = Event()
+        self.backup_watchdog_timeout = Value('i',30)
+        self.backup_id = None
+
         # recorder
 
         self.alarm_timeout = 300
@@ -205,6 +213,7 @@ class Splitter(Process):
         self.alarm_timeout = 600
         self.files_to_export = []
         self.file_list = {}
+        self.last_buffer_time = None
 
         # detector
 
@@ -464,44 +473,50 @@ class Splitter(Process):
 
         ret = self.record_format.get_record_type(datetime.now())
         ret1 = self.record_format.get_record_type(datetime.now() + timedelta(seconds=120))
+        if self.type == 1:
+            if ret[0] or ret1[0]:
+                if ret[0]:
+                    num = ret[1]
+                    format = ret[2]
+                else:
+                    num = ret1[1]
+                    format = ret1[2]
 
-        if ret[0] or ret1[0]:
-            if ret[0]:
-                num = ret[1]
-                format = ret[2]
-            else:
-                num = ret1[1]
-                format = ret1[2]
+                if format == 'hybrid' or format == 'event' or self.encoder_sinks:
+                    if not self.detecting:
+                        self.start_detector()
+                else:
+                    if self.detecting:
+                        self.stop_detector()
 
-            if format == 'hybrid' or format == 'event' or self.encoder_sinks:
-                if not self.detecting:
-                    self.start_detector()
+                if not self.recording:
+                    self.start_record(num)
+
             else:
+                if self.recording:
+                    self.stop_record()
                 if self.detecting:
                     self.stop_detector()
-
-            if not self.recording:
-                self.start_record(num)
-
         else:
-            if self.recording:
-                self.stop_record()
-            if self.detecting:
-                self.stop_detector()
+            pass
 
     def update_watchdog(self):
-        ret = self.record_format.get_record_type(datetime.now())
-        ret1 = self.record_format.get_record_type(datetime.now() + timedelta(seconds=120))
-
-        if ret or ret1 and self.pipelines:
-            if self.watchdog.is_set():
-                self.watchdog_timeout.value = self.record_format.time * 2
-                self.watchdog.clear()
+        if self.state == 2:
+            # handle backup role
+            if self.backup_watchdog.is_set():
+                self.backup_watchdog_timeout = Value('i', 30)
+                self.backup_watchdog.clear()
             else:
-                self.watchdog_timeout.value -= 1
+                self.backup_watchdog.value -= 1
 
-            if self.watchdog_timeout.value <= 0:
-                self.exit.set()
+            if self.backup_watchdog.value <= 0:
+                # switch to active
+                self.state = 1
+                self.announce_state()
+        elif self.state == 1:
+            if self.backup_id:
+                message = {'event':'backup_watchdog'}
+                self.redis_queue.publish('%s_multifd' % self.backup_id, json.dumps(message))
 
 
 
@@ -1074,11 +1089,20 @@ class Splitter(Process):
                     self.host = data.get('host')
                     self.username = data.get('user')
                     self.password = data.get('password')
+                    self.type = data.get('type')
+                    self.backup_id = data.get('backup_id')
                     if self.state == 'standby':
                         self.configure_cam(self.name, self.host, self.username, self.password)
 
                 elif name == 'new_archive':
                     self.ftp_host = data.get('ftp_host')
+
+                elif name == 'backup_watchdog':
+                    self.backup_watchdog.set()
+
+                elif name == 'backup_id':
+                    self.backup_id = data.get('id')
+
 
 
     def test_multisink(self):
@@ -1451,11 +1475,11 @@ class Splitter(Process):
 
     def announce_state(self):
         if self.mode == 'manual':
-            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pid': os.getpid()}
+            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pid': os.getpid(),'type':self.type}
         elif self.mode == 'kubernetes':
-            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pod_ip': self.pod_ip}
+            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pod_ip': self.pod_ip,'node':self.node_name,'type':self.type}
 
-        self.redis_queue.set('videoserve-mulrifd:workers:%s' % self.id, json.dumps(state), ex=10)
+        self.redis_queue.set('videoserve-mulrifd:workers:%s' % self.id, json.dumps(state), ex=5)
         # self.redis_queue.expire('videoserve-mulrifd:workers:%s' % self.id,10)
 
 
@@ -1468,6 +1492,7 @@ class Splitter(Process):
         self.pod_ip = os.getenv('MY_POD_IP')
         self.redis_host_env = os.getenv('REDIS_HOST')
         self.ftp_host_env = os.getenv('FTP_HOST')
+        self.node_name = os.getenv('MY_NODE_NAME')
 
 
 
@@ -1570,12 +1595,14 @@ class Splitter(Process):
                     self.update_param()
             self.parse_incomming()
             self.announce_state()
-            #self.update_watchdog()
+            self.update_watchdog()
             time.sleep(1)
 
         self.stop_all()
         self.http_server.exit.set()
         print('Cam handler exiting')
+        self.redis_queue.delete('videoserve-mulrifd:workers:%s' % self.id)
+        self.redis_queue.delete('videoserver-multifd:%s:config' % self.id)
 
 
         sys.exit(-1)

@@ -248,8 +248,12 @@ class VideoHandler(RequestHandler):
                 interrupt = False
                 while not interrupt:
                     try:
-                        self.wfile.write(fr.read(188))
-                        self.wfile.flush()
+                        data = fr.read(128)
+                        if not data:
+                            break
+                        else:
+                            self.wfile.write(data)
+                            self.wfile.flush()
                     except:
                         break
 
