@@ -915,6 +915,7 @@ class Splitter(Process):
         params['pid'] = os.getpid()
         params['port'] = self.http_port
         params['ip'] = self.pod_ip
+        params['type'] = self.type
         if self.cam_options:
             params['direct_streams'] = []
             i = 0
