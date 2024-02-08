@@ -1107,8 +1107,9 @@ class Splitter(Process):
                     self.username = data.get('user')
                     self.password = data.get('password')
                     self.type = data.get('type')
-                    if self.state == 'standby':
+                    if not self.pipelines:
                         self.configure_cam(self.name, self.host, self.username, self.password)
+                        time.sleep(3)
 
                 elif name == 'backup_id':
                     self.backup_id = data.get('id')
