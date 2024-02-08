@@ -501,7 +501,7 @@ class Splitter(Process):
             pass
 
     def update_watchdog(self):
-        if self.state == 2:
+        if self.type == 2:
             # handle backup role
             if self.backup_watchdog.is_set():
                 self.backup_watchdog_timeout = Value('i', 30)
@@ -510,10 +510,12 @@ class Splitter(Process):
                 self.backup_watchdog.value -= 1
 
             if self.backup_watchdog.value <= 0:
-                # switch to active
-                self.state = 1
+                # switch to
+                self.type = 1
                 self.announce_state()
-        elif self.state == 1:
+
+        elif self.type == 1:
+
             if self.backup_id:
                 message = {'event':'backup_watchdog'}
                 self.redis_queue.publish('%s_multifd' % self.backup_id, json.dumps(message))
