@@ -517,7 +517,7 @@ class Splitter(Process):
         elif self.type == 1:
 
             if self.backup_id:
-                message = {'event':'backup_watchdog'}
+                message = {'event':'backup_watchdog','name':self.name,'host':self.host,'username':self.username,'password':self.password,'type':2}
                 self.redis_queue.publish('%s_multifd' % self.backup_id, json.dumps(message))
 
 
@@ -1102,6 +1102,13 @@ class Splitter(Process):
 
                 elif name == 'backup_watchdog':
                     self.backup_watchdog.set()
+                    self.name = data.get('name')
+                    self.host = data.get('host')
+                    self.username = data.get('user')
+                    self.password = data.get('password')
+                    self.type = data.get('type')
+                    if self.state == 'standby':
+                        self.configure_cam(self.name, self.host, self.username, self.password)
 
                 elif name == 'backup_id':
                     self.backup_id = data.get('id')
