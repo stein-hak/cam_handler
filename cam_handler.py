@@ -507,10 +507,10 @@ class Splitter(Process):
                 self.backup_watchdog_timeout = Value('i', 30)
                 self.backup_watchdog.clear()
             else:
-                self.backup_watchdog.value -= 1
+                self.backup_watchdog_timeout.value -= 1
 
-            if self.backup_watchdog.value <= 0:
-                # switch to
+            if self.backup_watchdog_timeout.value <= 0:
+                # switch to oper
                 self.type = 1
                 self.announce_state()
 
