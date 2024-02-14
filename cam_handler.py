@@ -200,7 +200,7 @@ class Splitter(Process):
         self.type = 0
 
         self.backup_watchdog = Event()
-        self.backup_watchdog_timeout = Value('i',30)
+        self.backup_watchdog_timeout = Value('i',10)
         self.backup_id = None
 
         # recorder
@@ -504,7 +504,7 @@ class Splitter(Process):
         if self.type == 2:
             # handle backup role
             if self.backup_watchdog.is_set():
-                self.backup_watchdog_timeout = Value('i', 30)
+                self.backup_watchdog_timeout = Value('i', 10)
                 self.backup_watchdog.clear()
             else:
                 self.backup_watchdog_timeout.value -= 1
