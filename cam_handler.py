@@ -1649,7 +1649,7 @@ if __name__ == '__main__':
     redis_host = os.getenv('REDIS_HOST')
     ftp_host = os.getenv('FTP_HOST')
     # Debug
-    s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.101', user='admin',password='123456')
-    #s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
+    #s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.101', user='admin',password='123456')
+    s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
     s.type=1
     s.run()
