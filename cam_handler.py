@@ -327,7 +327,7 @@ class Splitter(Process):
             while pipeline.get_state(1 * Gst.SECOND)[1] != Gst.State.PLAYING:
                 pipeline.set_state(Gst.State.PLAYING)
                 time.sleep(0.1)
-                if time.time() - begin > 10:
+                if time.time() - begin > 15:
                     print('Pipeline for record start timeout')
                     self.exit.set()
                     break
@@ -434,7 +434,7 @@ class Splitter(Process):
             begin = time.time()
             while pipeline.get_state(1 * Gst.SECOND)[1] != Gst.State.PLAYING:
                 pipeline.set_state(Gst.State.PLAYING)
-                if time.time() - begin > 5:
+                if time.time() - begin > 15:
                     print('Timeout on detector pipeline start')
                     self.exit.set()
                     break
@@ -1649,7 +1649,7 @@ if __name__ == '__main__':
     redis_host = os.getenv('REDIS_HOST')
     ftp_host = os.getenv('FTP_HOST')
     # Debug
-    # s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.105', user='admin',password='123456')
-    s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
+    s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.101', user='admin',password='123456')
+    #s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
     s.type=1
     s.run()
