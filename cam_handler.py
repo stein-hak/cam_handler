@@ -1096,7 +1096,8 @@ class Splitter(Process):
                     self.password = data.get('password')
                     self.type = data.get('type')
                     self.backup_id = data.get('backup_id')
-                    if self.state == 'standby':
+                    self.announce_state()
+                    if not self.pipelines:
                         self.configure_cam(self.name, self.host, self.username, self.password)
 
                 elif name == 'new_archive':
@@ -1492,7 +1493,7 @@ class Splitter(Process):
         elif self.mode == 'kubernetes':
             state = {'id': self.id, 'name': self.name, 'host': self.host, 'pod_ip': self.pod_ip,'node':self.node_name,'type':self.type}
 
-        self.redis_queue.set('videoserve-mulrifd:workers:%s' % self.id, json.dumps(state), ex=5)
+        self.redis_queue.set('videoserve-mulrifd:workers:%s' % self.id, json.dumps(state), ex=30)
         # self.redis_queue.expire('videoserve-mulrifd:workers:%s' % self.id,10)
 
 
