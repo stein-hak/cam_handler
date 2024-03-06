@@ -323,28 +323,37 @@ class Splitter(Process):
             print('Start recording')
             self.watchdogger = watchdogger(main_exit=self.exit,watchdog=self.watchdog,watchdog_timeout=self.watchdog_timeout,timeout=self.record_format.time * 2)
             self.watchdogger.start()
+            begin = time.time()
             while pipeline.get_state(1 * Gst.SECOND)[1] != Gst.State.PLAYING:
                 pipeline.set_state(Gst.State.PLAYING)
                 time.sleep(0.1)
-            self.start_times[pipeline] = datetime.now()
+                if time.time() - begin > 10:
+                    print('Pipeline for record start timeout')
+                    self.exit.set()
+                    break
 
             vcodec = self.vcodecs.get(location)
+            if vcodec:
+                print('Pipeline for record started')
+                self.start_times[pipeline] = datetime.now()
 
-            self.fd_num = os.listdir(self.fd_dir)
 
-            self.recorder = self.create_recorder_pipeline(location='rtsp',
-                                                          file_location=os.path.join(self.base_path, str(num)),
-                                                          vcodec=vcodec)
 
-            pipeline.add(self.recorder)
+                self.fd_num = os.listdir(self.fd_dir)
 
-            tee = pipeline.get_by_name('video_tee')
-            tee.link(self.recorder)
-            self.recorder.set_state(Gst.State.PLAYING)
-            while self.recorder.get_state(Gst.SECOND)[1] != Gst.State.PLAYING:
-                time.sleep(0.1)
-            print('Recorder started')
-            self.recording = True
+                self.recorder = self.create_recorder_pipeline(location='rtsp',
+                                                              file_location=os.path.join(self.base_path, str(num)),
+                                                              vcodec=vcodec)
+
+                pipeline.add(self.recorder)
+
+                tee = pipeline.get_by_name('video_tee')
+                tee.link(self.recorder)
+                self.recorder.set_state(Gst.State.PLAYING)
+                while self.recorder.get_state(Gst.SECOND)[1] != Gst.State.PLAYING:
+                    time.sleep(0.1)
+                print('Recorder started')
+                self.recording = True
 
 
     def stop_record(self):
@@ -418,27 +427,37 @@ class Splitter(Process):
             pipeline, bus = list(self.pipelines.values())[-1]
             location = list(self.pipelines.keys())[-1]
 
+
+
         if not self.detecting:
             print('Start detecting')
+            begin = time.time()
             while pipeline.get_state(1 * Gst.SECOND)[1] != Gst.State.PLAYING:
                 pipeline.set_state(Gst.State.PLAYING)
+                if time.time() - begin > 5:
+                    print('Timeout on detector pipeline start')
+                    self.exit.set()
+                    break
                 time.sleep(0.1)
-            self.start_times[pipeline] = datetime.now()
             vcodec = self.vcodecs.get(location)
+            if vcodec:
+                print('Pipeline for detector started')
+                self.start_times[pipeline] = datetime.now()
 
-            self.detector = self.create_detector_pipeline(vcodec=vcodec)
+                print(vcodec)
+                self.detector = self.create_detector_pipeline(vcodec=vcodec)
 
-            pipeline.add(self.detector)
+                pipeline.add(self.detector)
 
-            tee = pipeline.get_by_name('video_tee')
-            tee.link(self.detector)
+                tee = pipeline.get_by_name('video_tee')
+                tee.link(self.detector)
 
-            self.detector.set_state(Gst.State.PLAYING)
+                self.detector.set_state(Gst.State.PLAYING)
 
-            while self.detector.get_state(0.1 * Gst.SECOND)[1] != Gst.State.PLAYING:
-                time.sleep(0.1)
-            print('Detector started')
-            self.detecting = True
+                while self.detector.get_state(0.1 * Gst.SECOND)[1] != Gst.State.PLAYING:
+                    time.sleep(0.1)
+                print('Detector started')
+                self.detecting = True
 
         # pipeline, bus = list(self.pipelines.values())[self.encoder_num]
         #
@@ -482,8 +501,6 @@ class Splitter(Process):
                     num = ret1[1]
                     format = ret1[2]
 
-                if not self.recording:
-                    self.start_record(num)
 
                 if format == 'hybrid' or format == 'event' or self.encoder_sinks:
                     if not self.detecting:
@@ -492,7 +509,8 @@ class Splitter(Process):
                     if self.detecting:
                         self.stop_detector()
 
-
+                if not self.recording:
+                    self.start_record(num)
 
             else:
                 if self.recording:
@@ -534,7 +552,7 @@ class Splitter(Process):
         print('Creating pipeline for %s' % location)
         source = Gst.ElementFactory.make('rtspsrc', 'source')
         source.set_property('location', location)
-        source.set_property('latency', 0)
+        #source.set_property('latency', 0)
         source.set_property('user-id', user)
         source.set_property('user-pw', passwd)
         source.connect("pad-added", self.on_rtspsrc_pad_added)
@@ -707,11 +725,11 @@ class Splitter(Process):
         self.detector = Gst.Bin.new()
         self.detector.set_property('name', 'detector')
         queue = Gst.ElementFactory.make('queue', 'raw')
-        queue.set_property('max-size-time', int(0.1 * Gst.SECOND))
+        #queue.set_property('max-size-time', int(0.1 * Gst.SECOND))
         self.detector.add(queue)
 
         decode = Gst.ElementFactory.make('decodebin', 'decoder')
-        decode.set_property('async-handling', False)
+        #decode.set_property('async-handling', False)
         self.detector.add(decode)
         decode.connect('pad-added', self.on_decodebin_pad_added)
         queue.link(decode)
@@ -1476,6 +1494,7 @@ class Splitter(Process):
             self.begin_time = datetime.now()
 
 
+
     def stop_all(self):
         # if self.recording:
         #     self.stop_record()
@@ -1615,8 +1634,8 @@ class Splitter(Process):
         self.stop_all()
         self.http_server.exit.set()
         print('Cam handler exiting')
-        self.redis_queue.delete('videoserve-mulrifd:workers:%s' % self.id)
-        self.redis_queue.delete('videoserver-multifd:%s:config' % self.id)
+        #self.redis_queue.delete('videoserve-mulrifd:workers:%s' % self.id)
+        #self.redis_queue.delete('videoserver-multifd:%s:config' % self.id)
 
 
         sys.exit(-1)
@@ -1629,5 +1648,8 @@ if __name__ == '__main__':
     #     time.sleep(1)
     redis_host = os.getenv('REDIS_HOST')
     ftp_host = os.getenv('FTP_HOST')
-    s = Splitter(redis_host=redis_host,ftp_host=ftp_host)
+    # Debug
+    # s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.105', user='admin',password='123456')
+    s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
+    s.type=1
     s.run()
