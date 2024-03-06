@@ -482,6 +482,9 @@ class Splitter(Process):
                     num = ret1[1]
                     format = ret1[2]
 
+                if not self.recording:
+                    self.start_record(num)
+
                 if format == 'hybrid' or format == 'event' or self.encoder_sinks:
                     if not self.detecting:
                         self.start_detector()
@@ -489,8 +492,7 @@ class Splitter(Process):
                     if self.detecting:
                         self.stop_detector()
 
-                if not self.recording:
-                    self.start_record(num)
+
 
             else:
                 if self.recording:
