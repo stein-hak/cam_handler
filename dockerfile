@@ -3,8 +3,6 @@ ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpulse0 \
-    pulseaudio \
     python3-mutagen \
     python3-gi \
     python3-gi-cairo \
@@ -42,6 +40,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     bash \
     ffmpeg
+    # libpulse0 \
+    # pulseaudio \
+
 
 RUN pip3 install onvif_zeep face_recognition pyzbar
 ENV PYTHONUNBUFFERED=1
