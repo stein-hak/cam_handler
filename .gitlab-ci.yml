@@ -1,7 +1,8 @@
 default:
-  image: docker:19.03
+  image: docker:stable
   services:
-    - name: docker:19.03-dind
+    - name: docker:dind
+      entrypoint: ["dockerd-entrypoint.sh", "--tls=false"]
       alias: docker
   before_script:
     - docker info
