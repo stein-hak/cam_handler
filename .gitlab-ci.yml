@@ -24,12 +24,12 @@ variables:
   # creates them automatically on boot, and creates
   # `/certs/client` to share between the service and job
   # container, thanks to volume mount from config.toml
-  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_CERTDIR: ""
   # These are usually specified by the entrypoint, however the
   # Kubernetes executor doesn't run entrypoints
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4125
-  DOCKER_TLS_VERIFY: 1
-  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  #DOCKER_TLS_VERIFY: 1
+  #DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
 
 build:
   stage: build
