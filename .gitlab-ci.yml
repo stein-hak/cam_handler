@@ -1,7 +1,8 @@
 default:
   image: docker:19.03
   services:
-    - docker:19.03-dind
+    - name: docker:19.03-dind
+      alias: docker
   before_script:
     - docker info
 
