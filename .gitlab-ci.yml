@@ -10,7 +10,7 @@
 # This template uses one generic job with conditional builds
 # for the default branch and all other (MR) branches.
 stages:
-  build
+  - build
 
 
 docker-build:
