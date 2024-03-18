@@ -11,7 +11,7 @@ variables:
   # the daemon started inside of the service. The daemon is available
   # with a network connection instead of the default
   # /var/run/docker.sock socket.
-  DOCKER_HOST: tcp://docker:2376
+  DOCKER_HOST: tcp://docker:2375
   #
   # The 'docker' hostname is the alias of the service container as described at
   # https://docs.gitlab.com/ee/ci/services/#accessing-the-services.
