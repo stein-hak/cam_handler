@@ -28,10 +28,11 @@ build_stage:
 
 deploy_stage:
   stage: deploy
-  image: bitnami/kubectl:latest
-  entrypoint: ['']
-script:
-  - kubectl config use-context video/cam_handler:office
-  - kubectl get pods -A -o wide
-allow_failure: true
+  image: 
+    name: bitnami/kubectl:latest
+    entrypoint: ['']
+  script:
+    - kubectl config use-context video/cam_handler:office
+    - kubectl get pods -A -o wide
+  allow_failure: true
 
