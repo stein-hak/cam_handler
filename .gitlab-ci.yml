@@ -21,7 +21,7 @@ build_stage:
     - ls /kaniko
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/dockerfile" --destination ${CI_REGISTRY_IMAGE}:$CI_COMMIT_TAG
+    - /kaniko/executor --cache=true --context "${CI_PROJECT_DIR}" --dockerfile "${CI_PROJECT_DIR}/dockerfile" --destination ${CI_REGISTRY_IMAGE}:$CI_COMMIT_TAG  --destination ${CI_REGISTRY_IMAGE}:latest
   rules:
     - if: $CI_COMMIT_TAG
 
@@ -33,6 +33,8 @@ deploy_stage:
     entrypoint: ['']
   script:
     - kubectl config use-context video/cam_handler:office
-    - kubectl get pods -A -o wide
+    -   kubectl set image deployment.apps/cam-handler-deployment *=${CI_REGISTRY_IMAGE}:latest -n videoserver
   allow_failure: true
+   rules:
+    - if: $CI_COMMIT_TAG
 
