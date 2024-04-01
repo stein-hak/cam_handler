@@ -1,14 +1,9 @@
 #!/usr/bin/python3
-
 import sys
-
 sys.path.append('/opt/lib/')
-import os
 import gi
-from ffprobe import ffprobe
-
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst, Gio, GObject
+from gi.repository import Gst, GObject
 from datetime import datetime, timedelta
 import time
 import os
@@ -24,7 +19,6 @@ import socket
 import ftplib
 from copy import copy
 from functools import partial
-import argparse
 from uuid import uuid4
 from native_ping import ping
 
@@ -42,11 +36,11 @@ GObject.threads_init()
 #     return ret
 
 class watchdogger(Process):
-    def __init__(self, main_exit,watchdog,watchdog_timeout,timeout):
+    def __init__(self, main_exit, watchdog, watchdog_timeout, timeout):
         Process.__init__(self)
         self.exit = Event()
         self.main_exit = main_exit
-        self.watchdog= watchdog
+        self.watchdog = watchdog
         self.watchdog_timeout = watchdog_timeout
         self.exit = Event()
         self.timeout = timeout
@@ -63,10 +57,6 @@ class watchdogger(Process):
                 self.main_exit.set()
                 break
             time.sleep(1)
-
-
-
-
 class record_format():
 
     def __init__(self, time, format={0: {'hybrid': {'days': '1111111', 'hours': '000000000111111111111111'},
@@ -158,7 +148,7 @@ class Splitter(Process):
     def __init__(self, host=None, name='default', user='admin', password='admin', overrides={}, publish_rtsp=False,
                  redis_host='127.0.0.1', ftp_host='localhost', min_detector_width=360, encoder_resolutions=[]):
         Process.__init__(self)
-        #self.state = Value('i',0)  # {-2:ping timeout, -1:rtsp pipeline failed, 1: standby, 2:broadcasting, 3:recording}
+        # self.state = Value('i',0)  # {-2:ping timeout, -1:rtsp pipeline failed, 1: standby, 2:broadcasting, 3:recording}
         self.name = name
         self.host = host
         self.user = user
@@ -178,10 +168,6 @@ class Splitter(Process):
         self.exit = Event()
         self.watchdog = Event()
         self.watchdogger = None
-
-
-
-
         self.pool = redis.ConnectionPool(host=self.redis_host, port=6379, db=0)
         self.redis_queue = redis.StrictRedis(connection_pool=self.pool)
         self.start_times = {}
@@ -191,7 +177,7 @@ class Splitter(Process):
         self.base_path = os.path.join(self.parent_path, self.name)
         self.fifo_path = os.path.join(self.base_path, 'fifo')
         self.http_port = None
-        self.encoder_resolutions = encoder_resolutions # example [('MJPEG', 420, 15, 1), ('H264', 240, 15, 0.5)]
+        self.encoder_resolutions = encoder_resolutions   # example [('MJPEG', 420, 15, 1), ('H264', 240, 15, 0.5)]
         self.encoder_sinks = []
         self.sinks = []
         self.native_sinks = []
@@ -200,7 +186,7 @@ class Splitter(Process):
         self.type = 0
 
         self.backup_watchdog = Event()
-        self.backup_watchdog_timeout = Value('i',10)
+        self.backup_watchdog_timeout = Value('i', 10)
         self.backup_id = None
 
         # recorder
@@ -275,7 +261,7 @@ class Splitter(Process):
             try:
                 snap_uri = self.onvif.get_snapshot_uri()
             except:
-                print('%s: unable to get snap_uri by onvif' % self.name )
+                print('%s: unable to get snap_uri by onvif' % self.name)
                 snap_uri = None
 
             try:
@@ -292,14 +278,10 @@ class Splitter(Process):
                     s = sorted(cam_options.items(), key=lambda x: [x[1][1] * x[1][2]], reverse=True)
                     for item in s:
                         cam_options[item[0]] = item[1]
-
-
             except:
                 print('%s: unable to get video options by onvif' % self.name)
 
-
         return video_uri, snap_uri, cam_options
-
 
     def keep_ratio(self, width, height, width1):
         rate = float(width1) / width
@@ -318,10 +300,9 @@ class Splitter(Process):
         except:
             pipeline, bus = list(self.pipelines.values())[0]
             location = list(self.pipelines.keys())[0]
-
         if not self.recording:
             print('Start recording')
-            self.watchdogger = watchdogger(main_exit=self.exit,watchdog=self.watchdog,watchdog_timeout=self.watchdog_timeout,timeout=self.record_format.time * 2)
+            self.watchdogger = watchdogger(main_exit=self.exit, watchdog=self.watchdog, watchdog_timeout=self.watchdog_timeout, timeout=self.record_format.time * 2)
             self.watchdogger.start()
             begin = time.time()
             while pipeline.get_state(1 * Gst.SECOND)[1] != Gst.State.PLAYING:
@@ -336,9 +317,6 @@ class Splitter(Process):
             if vcodec:
                 print('Pipeline for record started')
                 self.start_times[pipeline] = datetime.now()
-
-
-
                 self.fd_num = os.listdir(self.fd_dir)
 
                 self.recorder = self.create_recorder_pipeline(location='rtsp',
@@ -346,7 +324,6 @@ class Splitter(Process):
                                                               vcodec=vcodec)
 
                 pipeline.add(self.recorder)
-
                 tee = pipeline.get_by_name('video_tee')
                 tee.link(self.recorder)
                 self.recorder.set_state(Gst.State.PLAYING)
@@ -354,8 +331,6 @@ class Splitter(Process):
                     time.sleep(0.1)
                 print('Recorder started')
                 self.recording = True
-
-
     def stop_record(self):
         if self.recording:
             self.split_now()
@@ -367,16 +342,12 @@ class Splitter(Process):
             ghostpad = self.recorder.get_static_pad("sink")
             teepad = ghostpad.get_peer()
             teepad.add_probe(Gst.PadProbeType.BLOCK, self.blocking_pad_recorder)
-
-
     def stop_detector(self):
         if self.detector:
             self.detecting = False
             ghostpad = self.detector.get_static_pad("sink")
             teepad = ghostpad.get_peer()
             teepad.add_probe(Gst.PadProbeType.BLOCK, self.blocking_pad_detector)
-
-
     def blocking_pad_recorder(self, pad, info):
         # Function to remove bin from pipeline
 
@@ -426,8 +397,6 @@ class Splitter(Process):
         except:
             pipeline, bus = list(self.pipelines.values())[-1]
             location = list(self.pipelines.keys())[-1]
-
-
 
         if not self.detecting:
             print('Start detecting')
@@ -501,7 +470,6 @@ class Splitter(Process):
                     num = ret1[1]
                     format = ret1[2]
 
-
                 if format == 'hybrid' or format == 'event' or self.encoder_sinks:
                     if not self.detecting:
                         self.start_detector()
@@ -537,13 +505,8 @@ class Splitter(Process):
         elif self.type == 1:
 
             if self.backup_id:
-                message = {'event':'backup_watchdog','name':self.name,'host':self.host,'username':self.username,'password':self.password,'type':2}
+                message = {'event':'backup_watchdog', 'name':self.name, 'host':self.host, 'username':self.username, 'password':self.password, 'type':2}
                 self.redis_queue.publish('%s_multifd' % self.backup_id, json.dumps(message))
-
-
-
-
-
 
     def create_base_pipeline(self, location, user, passwd, tcp=False):
         pipeline = Gst.Pipeline()
@@ -552,7 +515,7 @@ class Splitter(Process):
         print('Creating pipeline for %s' % location)
         source = Gst.ElementFactory.make('rtspsrc', 'source')
         source.set_property('location', location)
-        #source.set_property('latency', 0)
+        # source.set_property('latency', 0)
         source.set_property('user-id', user)
         source.set_property('user-pw', passwd)
         source.connect("pad-added", self.on_rtspsrc_pad_added)
@@ -650,7 +613,6 @@ class Splitter(Process):
 
         return self.recorder
 
-
     def create_encoder_pipeline(self, name, encoder, resolution=(0, 0), fps=15, bitrate=1, caps=None):
         pipeline = Gst.Bin.new()
         pipeline.set_property('name', 'Encoder_for_%s_%s' % (name, encoder))
@@ -719,7 +681,6 @@ class Splitter(Process):
 
         return pipeline
 
-
     def create_detector_pipeline(self, vcodec):
         # 'fdsrc ! tsdemux ! decodebin ! videoparse ! videorate ! videoscale ! motioncells ! jpegenc ! multipartmux !  multifdsink'
         self.detector = Gst.Bin.new()
@@ -727,16 +688,13 @@ class Splitter(Process):
         queue = Gst.ElementFactory.make('queue', 'raw')
         #queue.set_property('max-size-time', int(0.1 * Gst.SECOND))
         self.detector.add(queue)
-
         decode = Gst.ElementFactory.make('decodebin', 'decoder')
         #decode.set_property('async-handling', False)
         self.detector.add(decode)
         decode.connect('pad-added', self.on_decodebin_pad_added)
         queue.link(decode)
-
         tee = Gst.ElementFactory.make('tee', 'tee_video')
         self.detector.add(tee)
-
         queue_motion = Gst.ElementFactory.make('queue', 'motion_queue')
         self.detector.add(queue_motion)
         convert = Gst.ElementFactory.make('videoconvert', 'convert')
@@ -793,15 +751,11 @@ class Splitter(Process):
         # qeueue name=face !
     def on_rtspsrc_pad_added(self, rtspsrc, pad, *user_data):
         parent = rtspsrc.get_property('parent')
-
         location = rtspsrc.get_property('location')
-
         pad_caps = pad.get_current_caps()
         pad_struct = pad_caps.get_structure(0)
         pad_type = pad_struct.get_name()
-
         encoding = pad_struct.get_value('encoding-name')
-
         media = pad_struct.get_value('media')
 
         # print(pad_struct.to_string())
@@ -887,41 +841,28 @@ class Splitter(Process):
         scale = parent.get_by_name('scale')
         app_queue = parent.get_by_name('app_queue')
         appsink = parent.get_by_name('raw_sink')
-
         motion_tee = parent.get_by_name('motion_tee')
         fakesink = parent.get_by_name('fakesink')
-
         # print('Pad created for decoder')
         pad.link(tee.get_static_pad('sink'))
 
         tee.link(queue)
-
         queue.link(convert)
-
         convert.link(rate)
-
         rate.link(scale)
         # caps = Gst.Caps.from_string("video/x-raw,width=%d,height=%d,framerate=%d/1" % (self.detector_width,self.detector_height,self.detector_fps))
         # scale.link_filtered(detector,caps)
         scale.link(detector)
-
         detector.link(textoverlay)
         textoverlay.link(motion_tee)
         motion_tee.link(fakesink)
-
         tee.link(app_queue)
         app_queue.link(appsink)
-
-
     def get_fd_count(self):
         print(len(os.listdir(self.fd_dir)))
-
-
     def add_client(self, sink, fd):
         sink.get_property('parent').set_state(Gst.State.PLAYING)
         self.start_times[sink.get_property('parent')] = datetime.now()
-
-
     def remove_client(self, sink, fd, status):
         # print("Removing client")
         # print(self.fifos.get(fd))
@@ -929,7 +870,6 @@ class Splitter(Process):
         if self.fifos.get(fd):
             os.unlink(self.fifos.get(fd))
             del self.fifos[fd]
-
 
     def update_param(self):
         params = {}
@@ -971,8 +911,6 @@ class Splitter(Process):
 
         self.redis_queue.set('videoserver-multifd:%s:config' % self.id, json.dumps(params), ex=5)
         # self.redis_queue.expire('videoserve-mulrifd:%s:config' % self.id, 1)
-
-
     def parse_incomming(self):
         m = self.message_bus.get_message()
         if m:
@@ -1069,25 +1007,21 @@ class Splitter(Process):
                                 else:
                                     print('%s: No ftp archive to upload' % self.name)
                                     os.remove(path)
-
-
                             elif '#' in path:
                                 if self.ftp_host:
                                     try:
                                         upload_file(path, host=self.ftp_host)
                                     except:
-                                        print('%s: Unable to upload file to %s' % (self.name,self.ftp_host))
+                                        print('%s: Unable to upload file to %s' % (self.name, self.ftp_host))
                                         os.remove(path)
                                 else:
                                     print('%s: No ftp archive to upload' % self.name)
                                     os.remove(path)
                             else:
                                 os.remove(path)
-
                         else:
                             os.remove(path)
                         time.sleep(0.1)
-
 
                 elif name == 'alarm_active':
                     timeout = data.get('timeout')
@@ -1134,9 +1068,6 @@ class Splitter(Process):
 
                 elif name == 'backup_id':
                     self.backup_id = data.get('id')
-
-
-
     def test_multisink(self):
         if not self.publish_rtsp:
             for pipeline, bus in list(self.pipelines.values()):
@@ -1148,7 +1079,7 @@ class Splitter(Process):
                     if self.start_times.get(pipeline):
                         state = pipeline.get_state(5 * Gst.SECOND)
                         if state[1] == Gst.State.PLAYING:
-                            if pipeline.get_by_name('recorder') == None and pipeline.get_by_name('decoder') == None:
+                            if pipeline.get_by_name('recorder') is None and pipeline.get_by_name('decoder') is None:
                                 if (datetime.now() - self.start_times.get(pipeline)).seconds > 60:
                                     pipeline.send_event(Gst.Event.new_eos())
                                     del self.start_times[pipeline]
@@ -1168,8 +1099,6 @@ class Splitter(Process):
                                 pad_probe = partial(self.blocking_pad_probe, width)
                                 teepad.add_probe(Gst.PadProbeType.BLOCK, pad_probe)
                                 del self.start_times[bin]
-
-
     def blocking_pad_probe(self, width, pad, info):
         # Function to remove bin from pipeline
         parent = pad.get_property('parent')
@@ -1188,18 +1117,6 @@ class Splitter(Process):
 
         del self.encoders[width]
         return Gst.PadProbeReturn.REMOVE
-
-
-    # def split_now(self, timeout=15):
-    #     if not self.split_lock or datetime.now() - self.split_lock >= timedelta(seconds=timeout):
-    #         self.split_lock = datetime.now()
-    #         persist = self.recorder.get_by_name('persist')
-    #         print('splitting file')
-    #         persist.emit('split-now')
-    #
-    #     else:
-    #         pass
-
     def split_now(self, timeout=15):
         print('Manual split')
         if not self.split_lock:
@@ -1215,8 +1132,6 @@ class Splitter(Process):
                 if datetime.now() - beging_time > timedelta(seconds=timeout):
                     break
                 time.sleep(1)
-
-
     def handle_splits(self):
         if not self.split_lock and self.last_buffer_time:
             record_type = self.record_format.get_record_type(datetime.now())
@@ -1249,44 +1164,24 @@ class Splitter(Process):
                     if self.alarm[1]:
                         # print('Alarm stoped')
                         self.split_now()
-                        # if record_type[-1] == 'hybrid' or record_type[-1] == 'event':
-                        #     if self.record_format.event_seconds_post:
-                        #         if datetime.now() - self.alarm[2] >= timedelta(seconds=self.record_format.event_seconds_post):
-                        #             self.split_now()
-                        #     else:
-                        #         self.split_now()
-                        # else:
-                        #     self.split_now()
-
 
     def on_new_file(self, sink, id, sample):
         location = sink.get_property('location')
-
         file_name = location % id
-
         buff = sample.get_buffer()
-
         present_time = float(buff.dts) / Gst.SECOND
-
         print(present_time)
         print(float(buff.pts) / Gst.SECOND)
 
         if id == 0:
             self.last_buffer_time = datetime.now()
             present_time = float(buff.dts) / Gst.SECOND
-
             self.record_begin_time = datetime.now() - timedelta(seconds=present_time)
-
             print(self.record_begin_time)
-
             self.last_pts_time = float(buff.pts) / Gst.SECOND
             self.last_present_time = present_time
-
             self.last_file_name = file_name
-
-
         else:
-
             present_time = float(buff.dts) / Gst.SECOND
             self.last_present_time = present_time
             duration = (present_time - self.last_present_time)
@@ -1295,26 +1190,17 @@ class Splitter(Process):
                     print('Invalid dts, using pts')
                 duration = float(buff.pts) / Gst.SECOND - self.last_pts_time
                 self.last_pts_time = float(buff.pts) / Gst.SECOND
-
             begin = datetime.now()
-
             begin_time = begin - timedelta(seconds=duration)
-
             begin = datetime.now()
             print(begin_time)
             print(begin)
-
             new_name = self.name + '=' + begin_time.strftime('%y%m%d') + '=' + begin_time.strftime(
                 '%H') + '=' + begin_time.strftime('%M%S') + '-' + '%05d' % int(round(duration)) + '.mp4'
-
             final_name = os.path.join(self.file_location, new_name)
-
             shutil.move(self.last_file_name, final_name)
-
             self.file_list[final_name] = (begin_time, begin)
-
             files_to_export = []
-
             if not self.alarm[0] and not self.alarm[1]:
                 # If not alarmed - handle expired files
                 if self.record_format.event_seconds_pre:
@@ -1329,12 +1215,9 @@ class Splitter(Process):
 
                         files_to_export.append((file, begin, False))
                         del self.file_list[file]
-
-
             elif self.alarm[0]:
                 # If alarmed - set was_alarmed
                 self.alarm[1] = True
-
                 # if self.record_format.event_seconds_pre:
                 for file in sorted(list(self.file_list.keys())):
                     begin, end = self.file_list[file]
@@ -1382,7 +1265,7 @@ class Splitter(Process):
 
                 for file in files_to_export:
                     if file[2]:
-                        if not '#' in file[0]:
+                        if '#' not in file[0]:
                             basename = os.path.basename(file[0])
                             new_basename = basename.replace('.mp4', '#.mp4')
                             # print(file[0])
@@ -1409,8 +1292,6 @@ class Splitter(Process):
                 print('Main process hang?')
                 print(len(os.listdir(self.file_location)))
                 self.exit.set()
-
-
     def update_sinks(self):
         self.native_sinks = []
         for location in self.cam_options.keys():
@@ -1508,26 +1389,22 @@ class Splitter(Process):
 
     def announce_state(self):
         if self.mode == 'manual':
-            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pid': os.getpid(),'type':self.type}
+            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pid': os.getpid(), 'type':self.type}
         elif self.mode == 'kubernetes':
-            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pod_ip': self.pod_ip,'node':self.node_name,'type':self.type}
+            state = {'id': self.id, 'name': self.name, 'host': self.host, 'pod_ip': self.pod_ip, 'node':self.node_name, 'type':self.type}
 
         self.redis_queue.set('videoserve-mulrifd:workers:%s' % self.id, json.dumps(state), ex=30)
         # self.redis_queue.expire('videoserve-mulrifd:workers:%s' % self.id,10)
 
 
     def run(self):
-
         self.fd_dir = '/proc/%d/fd' % os.getpid()
-
         self.pod_name = os.getenv('MY_POD_NAME')
         self.namespace = os.getenv('MY_POD_NAMESPACE')
         self.pod_ip = os.getenv('MY_POD_IP')
         self.redis_host_env = os.getenv('REDIS_HOST')
         self.ftp_host_env = os.getenv('FTP_HOST')
         self.node_name = os.getenv('MY_NODE_NAME')
-
-
 
         if self.pod_name:
             self.mode = 'kubernetes'
@@ -1536,16 +1413,12 @@ class Splitter(Process):
                 self.redis_host = self.redis_host_env
             if self.ftp_host_env:
                 self.ftp_host = self.ftp_host_env
-
-
         else:
             self.mode = 'manual'
             self.id = str(uuid4()).split('-')[-1]
 
         print(self.mode)
-
         print(self.id)
-
 
         self.message_bus = self.redis_queue.pubsub(ignore_subscribe_messages=True)
         print(self.id+'_multifd')
@@ -1634,10 +1507,8 @@ class Splitter(Process):
         self.stop_all()
         self.http_server.exit.set()
         print('Cam handler exiting')
-        #self.redis_queue.delete('videoserve-mulrifd:workers:%s' % self.id)
-        #self.redis_queue.delete('videoserver-multifd:%s:config' % self.id)
-
-
+        # self.redis_queue.delete('videoserve-mulrifd:workers:%s' % self.id)
+        # self.redis_queue.delete('videoserver-multifd:%s:config' % self.id)
         sys.exit(-1)
 
 
@@ -1651,5 +1522,6 @@ if __name__ == '__main__':
     # Debug
     #s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.101', user='admin',password='123456')
     s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
-    s.type=1
+    s.type = 1
     s.run()
+
