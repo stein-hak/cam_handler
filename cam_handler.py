@@ -21,6 +21,7 @@ from copy import copy
 from functools import partial
 from uuid import uuid4
 from native_ping import ping
+import argparse
 
 Gst.init(None)
 GObject.threads_init()
@@ -105,13 +106,6 @@ class record_format():
         return is_active, num_final, record_format_final
 
 
-def upload_file(file, host='localhost', user='usrsokrat', password='mtt'):
-    session = ftplib.FTP(host, user, password)
-    with open(file, 'rb') as f:
-        session.storbinary('STOR %s' % os.path.basename(file), f)
-    session.quit()
-    os.remove(file)
-
 
 def parse_addr(url):
     args = None
@@ -146,7 +140,7 @@ def parse_addr(url):
 
 class Splitter(Process):
     def __init__(self, host=None, name='default', user='admin', password='admin', overrides={}, publish_rtsp=False,
-                 redis_host='127.0.0.1', ftp_host='localhost', min_detector_width=360, encoder_resolutions=[]):
+                 redis_host='127.0.0.1', ftp_host='localhost',  min_detector_width=360, encoder_resolutions=[],ftp_user='usrsokrat',ftp_passwd='mtt',record_format_arg = record_format(time=120, event_seconds_pre=0, event_seconds_post=60)):
         Process.__init__(self)
         # self.state = Value('i',0)  # {-2:ping timeout, -1:rtsp pipeline failed, 1: standby, 2:broadcasting, 3:recording}
         self.name = name
@@ -163,6 +157,8 @@ class Splitter(Process):
         self.processes = []
         self.redis_host = redis_host
         self.ftp_host = ftp_host
+        self.ftp_user = ftp_user
+        self.ftp_passwd = ftp_passwd
         self.min_detector_width = min_detector_width
         self.split_lock = None
         self.exit = Event()
@@ -171,7 +167,7 @@ class Splitter(Process):
         self.pool = redis.ConnectionPool(host=self.redis_host, port=6379, db=0)
         self.redis_queue = redis.StrictRedis(connection_pool=self.pool)
         self.start_times = {}
-        self.record_format = record_format(time=120, event_seconds_pre=0, event_seconds_post=60)
+        self.record_format = record_format_arg
         self.watchdog_timeout = Value('i', self.record_format.time * 2)
         self.parent_path = '/run/videoserver'
         self.base_path = os.path.join(self.parent_path, self.name)
@@ -229,6 +225,13 @@ class Splitter(Process):
             # print("Port is in use")
         sock.close()
         return result
+
+    def upload_file(self,file, host='localhost', user='usrsokrat', password='mtt'):
+        session = ftplib.FTP(host, user, password)
+        with open(file, 'rb') as f:
+            session.storbinary('STOR %s' % os.path.basename(file), f)
+        session.quit()
+        os.remove(file)
 
     def setup_onvif(self, host, user, passwd):
 
@@ -858,6 +861,7 @@ class Splitter(Process):
         motion_tee.link(fakesink)
         tee.link(app_queue)
         app_queue.link(appsink)
+
     def get_fd_count(self):
         print(len(os.listdir(self.fd_dir)))
     def add_client(self, sink, fd):
@@ -1000,7 +1004,8 @@ class Splitter(Process):
                             if ret[2] == 'hybrid' or ret[2] == 'persistent':
                                 if self.ftp_host:
                                     try:
-                                        upload_file(path, host=self.ftp_host)
+                                        self.upload_file(path, host=self.ftp_host, user=self.ftp_user,
+                                                    password=self.ftp_passwd)
                                     except:
                                         print('%s: Unable to upload file to %s' % (self.name, self.ftp_host))
                                         os.remove(path)
@@ -1010,7 +1015,8 @@ class Splitter(Process):
                             elif '#' in path:
                                 if self.ftp_host:
                                     try:
-                                        upload_file(path, host=self.ftp_host)
+                                        self.upload_file(path, host=self.ftp_host, user=self.ftp_user,
+                                                    password=self.ftp_passwd)
                                     except:
                                         print('%s: Unable to upload file to %s' % (self.name, self.ftp_host))
                                         os.remove(path)
@@ -1292,6 +1298,7 @@ class Splitter(Process):
                 print('Main process hang?')
                 print(len(os.listdir(self.file_location)))
                 self.exit.set()
+
     def update_sinks(self):
         self.native_sinks = []
         for location in self.cam_options.keys():
@@ -1513,15 +1520,33 @@ class Splitter(Process):
 
 
 if __name__ == '__main__':
-    #s = Splitter(name='in_office', redis_host='localhost', ftp_host='192.168.10.152', host='192.168.1.133')
-    # s.start()
-    # while s.is_alive():
-    #     time.sleep(1)
-    redis_host = os.getenv('REDIS_HOST')
-    ftp_host = os.getenv('FTP_HOST')
-    # Debug
-    #s = Splitter(redis_host=redis_host,ftp_host=ftp_host, host='192.168.20.101', user='admin',password='123456')
-    s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
-    s.type = 1
-    s.run()
+
+    s = None
+    if len(sys.argv) > 1:
+        parser = argparse.ArgumentParser(
+            description='Usage: cam_handler.py -r 192.168.1.1 -f 127.0.0.1 -n test_cam -c 192.168.1.100 -u admin -p admin')
+        parser.add_argument('-r', '--redis_host', default='127.0.0.1', help='Hostname for redis')
+        parser.add_argument('-f', '--ftp_host', default='127.0.0.1', help='Hostname for ftp archive')
+        parser.add_argument('--ftp_user', default='usrsokrat', help='Username for ftp archive')
+        parser.add_argument('--ftp_passwd', default='123', help='Password for ftp archive')
+        parser.add_argument('-n', '--name', default=None, help='Name of the instance')
+        parser.add_argument('-c', '--cam_host', default=None, help='Hostname for onvif camera')
+        parser.add_argument('-u', '--cam_user', default='admin', help='Onvif user for camera')
+        parser.add_argument('-p', '--cam_passwd', default='admin', help='Onvif password for camera')
+
+        args = parser.parse_args()
+
+        s = Splitter(name=args.name,host=args.cam_host,user=args.cam_user,password=args.cam_passwd,ftp_host=args.ftp_host,ftp_user=args.ftp_user,ftp_passwd=args.ftp_passwd)
+
+    else:
+        redis_host = os.getenv('REDIS_HOST')
+        ftp_host = os.getenv('FTP_HOST')
+        if redis_host and ftp_host:
+            s = Splitter(redis_host=redis_host, ftp_host=ftp_host)
+
+    if s :
+        s.type = 1
+        s.run()
+    else:
+        print('Insufficient data to start streamer, exiting')
 
