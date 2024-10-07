@@ -3,7 +3,7 @@ Cam_handler. A library and cli utility to record video from CCTV cameras with on
 Dependecies : See dockerfile for ubuntu. Requires addition redis server for interpricess communitations.
 
 Cli usage:
-
+```
 usage: cam_handler.py [-h] [-r REDIS_HOST] [-f FTP_HOST] [--ftp_user FTP_USER]
                       [--ftp_passwd FTP_PASSWD] [-n NAME] [-c CAM_HOST]
                       [-u CAM_USER] [-p CAM_PASSWD]
@@ -28,5 +28,5 @@ optional arguments:
   -p CAM_PASSWD, --cam_passwd CAM_PASSWD
                         Onvif password for camera
 
-
+```
 By default listens on 8888 tcp port for http connections, increments port by 1 if not available. To watch remote streams use http://ip_address:8888/live?res=n link where n is a number of sub stream from ip camera from 0 to the last one available.
